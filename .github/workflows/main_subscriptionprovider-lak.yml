@@ -39,4 +39,4 @@ jobs:
           app-name: 'subscriptionprovider-lak'
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_6AC0ECF4F2B047D98AC3C792C2682508 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_70952C5F010247AEADFC819DCF4FAE45 }}
