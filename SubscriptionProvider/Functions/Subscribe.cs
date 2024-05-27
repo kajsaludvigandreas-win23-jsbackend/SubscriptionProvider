@@ -27,12 +27,15 @@ namespace SubscriptionProvider.Functions
         {
             _logger.LogInformation("Processing subscription request.");
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody)!;
-            string email = data?.email;
-            bool isSubscribed = data?.isSubscribed;
+            string requestBody;
+            using (var reader = new StreamReader(req.Body))
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
 
-            if (string.IsNullOrEmpty(email) || !isSubscribed)
+            var data = JsonConvert.DeserializeObject<SubscribeEntity>(requestBody);
+
+            if (data == null || string.IsNullOrEmpty(data.Email) || !data.IsSubscribed)
             {
                 _logger.LogWarning("Invalid subscription data.");
                 return new BadRequestResult();
@@ -40,13 +43,13 @@ namespace SubscriptionProvider.Functions
 
             var subscribeEntity = new SubscribeEntity
             {
-                Email = email,
-                IsSubscribed = isSubscribed
+                Email = data.Email,
+                IsSubscribed = data.IsSubscribed
             };
 
             try
             {
-                _context.Subscribers.Add(subscribeEntity); // Assuming you have a DbSet<SubscribeEntity> named Subscriptions
+                _context.Subscribers.Add(subscribeEntity);
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Subscription saved successfully.");
                 return new OkResult();
@@ -58,5 +61,6 @@ namespace SubscriptionProvider.Functions
             }
         }
     }
-}
 
+
+}
