@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using SubscriptionProvider.Data.Entities;
 
 namespace SubscriptionProvider.Functions
 {
@@ -17,10 +19,25 @@ namespace SubscriptionProvider.Functions
         }
 
         [Function("Subscribe")]
-        public IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req)
+        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
         {
-            _logger.LogInformation("");
-            return new OkObjectResult("");
+                   
+            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            dynamic data = JsonConvert.DeserializeObject(requestBody)!;
+            string email = data?.email;
+            bool isSubscribed = data?.isSubscribed;
+            if(email == null || isSubscribed == false)
+            {
+                return new BadRequestResult();
+            }
+            var subscribeEntity = new SubscribeEntity
+            {
+                Email = email,
+                IsSubscribed = isSubscribed
+            };
+           
+            return new OkResult();
+
         }
     }
 }
