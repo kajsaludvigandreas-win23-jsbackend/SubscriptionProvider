@@ -7,6 +7,7 @@ using SubscriptionProvider.Data;
 using SubscriptionProvider.Data.Contexts;
 using SubscriptionProvider.Data.Entities;
 using System.IO;
+using System.Net.Mail;
 using System.Threading.Tasks;
 
 namespace SubscriptionProvider.Functions
@@ -33,15 +34,25 @@ namespace SubscriptionProvider.Functions
                 requestBody = await reader.ReadToEndAsync();
             }
 
-            var data = JsonConvert.DeserializeObject<SubscribeEntity>(requestBody);
+            SubscribeEntity data;
+            try
+            {
+                data = JsonConvert.DeserializeObject<SubscribeEntity>(requestBody)!;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Invalid JSON format.");
+                return new BadRequestResult();
+            }
 
-            if (data == null || string.IsNullOrEmpty(data.Email) || !data.IsSubscribed)
+            if (data == null || string.IsNullOrEmpty(data.Email) || !data.IsSubscribed || !IsValidEmail(data.Email))
             {
                 _logger.LogWarning("Invalid subscription data.");
                 return new BadRequestResult();
             }
 
-            if (await _context.Subscribers.FindAsync(data.Email) != null)
+            var existingSubscriber = await _context.Subscribers.FindAsync(data.Email);
+            if (existingSubscriber != null)
             {
                 _logger.LogWarning("Email already subscribed.");
                 return new ConflictResult();
@@ -52,8 +63,6 @@ namespace SubscriptionProvider.Functions
                 Email = data.Email,
                 IsSubscribed = data.IsSubscribed
             };
-
-
 
             try
             {
@@ -68,7 +77,18 @@ namespace SubscriptionProvider.Functions
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
         }
+
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var mailAddress = new MailAddress(email);
+                return true;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
     }
-
-
 }
