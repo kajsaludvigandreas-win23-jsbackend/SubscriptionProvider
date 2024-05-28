@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using SubscriptionProvider.Data;
 using SubscriptionProvider.Data.Contexts;
 using SubscriptionProvider.Data.Entities;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -41,14 +42,24 @@ namespace SubscriptionProvider.Functions
                 return new BadRequestResult();
             }
 
-            var subscribeEntity = new SubscribeEntity
-            {
-                Email = data.Email,
-                IsSubscribed = data.IsSubscribed
-            };
-
             try
             {
+                // Check if the email already exists
+                var existingSubscription = await _context.Subscribers
+                    .FirstOrDefaultAsync(s => s.Email == data.Email);
+
+                if (existingSubscription != null)
+                {
+                    _logger.LogWarning("Email already subscribed.");
+                    return new ConflictResult(); // 409 Conflict
+                }
+
+                var subscribeEntity = new SubscribeEntity
+                {
+                    Email = data.Email,
+                    IsSubscribed = data.IsSubscribed
+                };
+
                 _context.Subscribers.Add(subscribeEntity);
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Subscription saved successfully.");
@@ -61,6 +72,4 @@ namespace SubscriptionProvider.Functions
             }
         }
     }
-
-
 }
