@@ -44,14 +44,13 @@ namespace SubscriptionProvider.Functions
 
             try
             {
-                // Check if the email already exists
                 var existingSubscription = await _context.Subscribers
                     .FirstOrDefaultAsync(s => s.Email == data.Email);
 
                 if (existingSubscription != null)
                 {
                     _logger.LogWarning("Email already subscribed.");
-                    return new ConflictResult(); // 409 Conflict
+                    return new ConflictResult();
                 }
 
                 var subscribeEntity = new SubscribeEntity
@@ -68,6 +67,50 @@ namespace SubscriptionProvider.Functions
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error saving subscription.");
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
+        }
+
+        [Function("ToggleSubscription")]
+        public async Task<IActionResult> ToggleSubscription([HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
+        {
+            _logger.LogInformation("Processing subscription toggle request.");
+
+            string requestBody;
+            using (var reader = new StreamReader(req.Body))
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
+
+            var data = JsonConvert.DeserializeObject<SubscribeEntity>(requestBody);
+
+            if (data == null || string.IsNullOrEmpty(data.Email))
+            {
+                _logger.LogWarning("Invalid subscription data.");
+                return new BadRequestResult();
+            }
+
+            try
+            {
+                var existingSubscription = await _context.Subscribers
+                    .FirstOrDefaultAsync(s => s.Email == data.Email);
+
+                if (existingSubscription == null)
+                {
+                    _logger.LogWarning("Email not found.");
+                    return new NotFoundResult();
+                }
+
+                existingSubscription.IsSubscribed = !existingSubscription.IsSubscribed;
+                _context.Subscribers.Update(existingSubscription);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Subscription status toggled successfully.");
+                return new OkObjectResult(existingSubscription);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error toggling subscription.");
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
         }
