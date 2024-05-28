@@ -41,11 +41,19 @@ namespace SubscriptionProvider.Functions
                 return new BadRequestResult();
             }
 
+            if (await _context.Subscribers.FindAsync(data.Email) != null)
+            {
+                _logger.LogWarning("Email already subscribed.");
+                return new ConflictResult();
+            }
+
             var subscribeEntity = new SubscribeEntity
             {
                 Email = data.Email,
                 IsSubscribed = data.IsSubscribed
             };
+
+
 
             try
             {
