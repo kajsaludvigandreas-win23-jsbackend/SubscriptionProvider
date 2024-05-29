@@ -12,21 +12,21 @@ using System.Threading.Tasks;
 
 namespace SubscriptionProvider.Functions
 {
-    public class Subscribe
+    public class Unsubscribe
     {
-        private readonly ILogger<Subscribe> _logger;
+        private readonly ILogger<Unsubscribe> _logger;
         private readonly DataContext _context;
 
-        public Subscribe(ILogger<Subscribe> logger, DataContext context)
+        public Unsubscribe(ILogger<Unsubscribe> logger, DataContext context)
         {
             _logger = logger;
             _context = context;
         }
 
-        [Function("Subscribe")]
+        [Function("Unsubscribe")]
         public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
         {
-            _logger.LogInformation("Processing subscription request.");
+            _logger.LogInformation("Processing unsubscribe request.");
 
             string requestBody;
             using (var reader = new StreamReader(req.Body))
@@ -38,41 +38,29 @@ namespace SubscriptionProvider.Functions
 
             if (data == null || string.IsNullOrEmpty(data.Email))
             {
-                _logger.LogWarning("Invalid subscription data.");
+                _logger.LogWarning("Invalid unsubscribe data.");
                 return new BadRequestResult();
             }
 
             try
             {
-                var existingSubscription = await _context.Subscribers
+                var entity = await _context.Subscribers
                     .FirstOrDefaultAsync(s => s.Email == data.Email);
 
-                if (existingSubscription != null)
+                if (entity == null)
                 {
-                    _logger.LogInformation("Email already subscribed. Toggling subscription status.");
-
-                    existingSubscription.IsSubscribed = !existingSubscription.IsSubscribed;
-                    _context.Subscribers.Update(existingSubscription);
-                    await _context.SaveChangesAsync();
-
-                    _logger.LogInformation("Subscription status toggled successfully.");
-                    return new OkObjectResult(existingSubscription);
+                    _logger.LogWarning("Email not found.");
+                    return new NotFoundResult();
                 }
 
-                var subscribeEntity = new SubscribeEntity
-                {
-                    Email = data.Email,
-                    IsSubscribed = data.IsSubscribed
-                };
-
-                _context.Subscribers.Add(subscribeEntity);
+                entity.IsSubscribed = false;
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("Subscription saved successfully.");
+                _logger.LogInformation("Unsubscribed successfully.");
                 return new OkResult();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error saving subscription.");
+                _logger.LogError(ex, "Error unsubscribing.");
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
         }
